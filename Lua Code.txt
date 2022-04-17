@@ -1,0 +1,96 @@
+---------------------------------------------------------------------------------------
+--This is proprietary code for the University of South Carolina Aiken CSCI 591/592 capstone project
+--commisioned by Dragos employee Mackenize Morris
+--Project: Leveraging Satisfactory for Programmable Logic Controller (PLC) Simulation and Cyber Security Testing
+--Developers and Contact Information: Samuel R. Boyd (srboyd@usca.edu) & Cody N. Collum (ccollum@usca.edu / codynathanielc@gmail.com)
+--Last Edited: April 29th, 2022
+--The following code is for use inside of the in-game computers included in the Fics-It Networks mod by Panakotta00 
+--for the game Satisfactory, by Coffee Stain Studios
+---------------------------------------------------------------------------------------
+
+
+-- The following lines of code assign the factory component's unique ID string to a simple variable for easy manipulation
+-- For your implementation to work you will need to understand the Fics-It Networks mod and reassign the string values for each machine below such i.e., "xxxxxxxxxx" to match those of your unique factory machines
+
+Constructor = component.proxy("AE901EDF45B333AF14AE818193092614")
+Assembler = component.proxy("BF8A2D304F5C9A76192379B07D5C7B5B")
+Assembler2 = component.proxy("D08A8B2B45AEE6BF82C192BD74F19576")
+
+-- Code that creates the variable 'card' and assigns it to the internet card that you must include in the in-game LUA computer setup 
+local card = computer.getPCIDevices(findClass("FINInternetCard"))[1]
+
+-- function to break down a larger integer into single values based upon digit location
+function getDigit(num, digit)
+	local n = 10 ^ digit
+	local n1 = 10 ^ (digit - 1)
+	return math.floor((num % n) / n1)
+end
+
+-- Loop for I/O
+while ( true )
+do
+
+-- Statements for determining machine standby status
+valuesforAPI = 1
+if Constructor.Standby == true then
+      valuesforAPI = valuesforAPI * 10
+else
+      valuesforAPI = valuesforAPI * 10 + 1
+end
+
+if Assembler.Standby == true then
+      valuesforAPI = valuesforAPI * 10
+else
+      valuesforAPI = valuesforAPI * 10 + 1
+end
+
+if Assembler2.Standby == true then
+      valuesforAPI = valuesforAPI * 10
+else
+      valuesforAPI = valuesforAPI * 10 + 1
+end
+
+-- Command to POST to localhost:3000/api
+local req = card:request("http://localhost:3000/api", "POST", valuesforAPI, "Content-Type", "text/html")
+print("Values compiled from machines and POSTED: ", tostring(valuesforAPI));
+event.pull(10) -- waiting 10 seconds to allow HMI intervention
+local req = card:request("http://localhost:3000/api", "GET", "")
+
+
+-- Breaking down GET request into constituent integers which correspond to machine states (binary 1/0s) and is used by the database.txt file
+local _, libdata = req:await()
+serverdata = tonumber(libdata)
+print("Values received from GET: ",serverdata);
+boolean = getDigit(serverdata,3)
+boolean2 = getDigit(serverdata,2)
+boolean3 = getDigit(serverdata,1)
+
+-- Loop of state assignment based on GET request values
+if boolean == 0 then
+      Constructor.Standby = true;
+      print("Theoretically the constructor should be off.");
+else
+      Constructor.Standby = false;
+      print("The contructor should be on");
+end
+
+if boolean2 == 0 then
+      Assembler.Standby = true;
+      print("Theoretically the assembler should be off.");
+else
+      Assembler.Standby = false;
+      print("The assembler should be on");
+end
+
+if boolean3 == 0 then
+      Assembler2.Standby = true;
+      print("Theoretically assembler 2 should be off.");
+else
+      Assembler2.Standby = false;
+      print("The assembler 2 should be on");
+end
+-- End of state assignment loop
+
+end 
+
+-- End of I/O loop
